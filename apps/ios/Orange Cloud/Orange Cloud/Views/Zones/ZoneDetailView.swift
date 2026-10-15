@@ -93,7 +93,7 @@ struct ZoneDetailView: View {
         }
     }
 
-    var body: some View {
+    private var bodyCore: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 heroCard
@@ -635,6 +635,10 @@ struct ZoneDetailView: View {
         } message: { action in
             Text(action.message(zoneName: zone.name))
         }
+    }
+
+    var body: some View {
+        bodyCore
         .confirmationDialog("清理全部缓存？", isPresented: $showPurgeConfirm, titleVisibility: .visible) {
             Button("清理", role: .destructive) {
                 Task { await actionsViewModel.purgeCache() }
