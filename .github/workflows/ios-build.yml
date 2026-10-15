@@ -2,6 +2,13 @@ name: iOS unsigned build
 
 on:
   workflow_dispatch:
+    inputs:
+      oauth_client_id:
+        description: "Cloudflare OAuth client ID (overrides secret CF_OAUTH_CLIENT_ID)"
+        required: false
+      oauth_redirect_uri:
+        description: "https OAuth redirect URI of your callback relay (overrides secret OAUTH_REDIRECT_URI)"
+        required: false
   push:
 
 jobs:
@@ -22,6 +29,16 @@ jobs:
       - name: Show Xcode
         run: xcodebuild -version && xcodebuild -showsdks
 
+      - name: Override OAuth config (optional)
+        env:
+          CID: ${{ inputs.oauth_client_id || secrets.CF_OAUTH_CLIENT_ID }}
+          RURI: ${{ inputs.oauth_redirect_uri || secrets.OAUTH_REDIRECT_URI }}
+        run: |
+          F="apps/ios/Orange Cloud/Orange Cloud/Core/Auth/OAuthConfig.swift"
+          if [ -n "$CID" ]; then sed -i '' -E "s|(static let clientID = \")[^\"]*|\1$CID|" "$F"; echo "clientID overridden"; fi
+          if [ -n "$RURI" ]; then sed -i '' -E "s|(static let redirectURI = \")[^\"]*|\1$RURI|" "$F"; echo "redirectURI overridden"; fi
+          grep -nE "clientID =|redirectURI =" "$F" | sed -E 's/"[0-9a-f]{8}[0-9a-f]*"/"<id>"/'
+
       - name: Resolve SPM packages
         run: xcodebuild -resolvePackageDependencies -project "$PROJECT" -scheme "$SCHEME" -clonedSourcePackagesDirPath build/spm
 
@@ -38,7 +55,6 @@ jobs:
             -skipPackagePluginValidation -skipMacroValidation \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             CODE_SIGN_ENTITLEMENTS="" DEVELOPMENT_TEAM="" \
-            SWIFT_ACTIVE_COMPILATION_CONDITIONS='$(inherited) OPENSOURCE_UNLOCKED' \
             | tee build/xcodebuild.log | grep -E "error:|warning: .*fatal|BUILD (SUCCEEDED|FAILED)|\*\*" || true
           grep -q "BUILD SUCCEEDED" build/xcodebuild.log
 
