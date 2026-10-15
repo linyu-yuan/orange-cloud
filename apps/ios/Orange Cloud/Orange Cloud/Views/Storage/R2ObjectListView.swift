@@ -114,9 +114,9 @@ struct R2ObjectListView: View {
             guard canWrite else { showDenied = true; return }
             Task { await uploadPhoto(item) }
         }
-        .fileImporter(isPresented: $showFileImporter, allowedContentTypes: [.item]) { result in
+        .documentPicker(isPresented: $showFileImporter) { urls in
             guard canWrite else { showDenied = true; return }
-            if case .success(let url) = result {
+            if let url = urls.first {
                 Task { await uploadFile(url) }
             }
         }

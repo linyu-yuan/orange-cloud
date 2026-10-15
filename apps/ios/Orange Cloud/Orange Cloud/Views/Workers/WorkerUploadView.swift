@@ -9,6 +9,7 @@
 //
 
 import SwiftUI
+import UIKit
 import UniformTypeIdentifiers
 
 struct WorkerUploadView: View {
@@ -103,17 +104,12 @@ struct WorkerUploadView: View {
                 }
 
                 switch effectiveKind {
-                // 每个 fileImporter 挂在各自的 section 上：同一视图上叠多个 .fileImporter 时
-                // SwiftUI 只有最后一个生效，导致「导入 .js」打开文件但无法选中。
                 case .single:
                     singleSection
-                        .fileImporter(isPresented: $showCodeImporter, allowedContentTypes: [.javaScript, .text, .item], allowsMultipleSelection: false) { importCode($0) }
                 case .modules:
                     modulesSection
-                        .fileImporter(isPresented: $showModuleImporter, allowedContentTypes: [.javaScript, .text, .item], allowsMultipleSelection: true) { importModules($0) }
                 case .assets:
                     assetsSection
-                        .fileImporter(isPresented: $showAssetImporter, allowedContentTypes: [.item], allowsMultipleSelection: true) { importAssets($0) }
                 }
 
                 if viewModel.isUploading, effectiveKind == .assets, viewModel.totalAssets > 0 {
@@ -153,6 +149,11 @@ struct WorkerUploadView: View {
             .onAppear { viewModel.error = nil }
             .task { await loadSourceIfNeeded() }
         }
+        // UIKit 文件选择器（asCopy）替代 SwiftUI .fileImporter：在 sheet 中嵌套使用时
+        // fileImporter 会出现文件全部灰显、无法选中的问题。
+        .documentPicker(isPresented: $showCodeImporter) { importCode(.success($0)) }
+        .documentPicker(isPresented: $showModuleImporter, allowsMultipleSelection: true) { importModules(.success($0)) }
+        .documentPicker(isPresented: $showAssetImporter, allowsMultipleSelection: true) { importAssets(.success($0)) }
     }
 
     // MARK: - 公共字段（仅新建）
@@ -212,6 +213,10 @@ struct WorkerUploadView: View {
                         Label("从 .js 文件导入", systemImage: "doc.badge.plus")
                     }
                     .disabled(viewModel.isUploading)
+                    Button { pasteCode() } label: {
+                        Label("从剪贴板粘贴代码", systemImage: "doc.on.clipboard")
+                    }
+                    .disabled(viewModel.isUploading)
                 }
             } header: {
                 Text("代码")
@@ -258,6 +263,10 @@ struct WorkerUploadView: View {
                       ? String(localized: "导入 .js 文件整体替换")
                       : String(localized: "重新选择文件"),
                       systemImage: "doc.badge.plus")
+            }
+            .disabled(viewModel.isUploading)
+            Button { pasteCode() } label: {
+                Label("从剪贴板粘贴代码", systemImage: "doc.on.clipboard")
             }
             .disabled(viewModel.isUploading)
         }
@@ -384,6 +393,18 @@ struct WorkerUploadView: View {
         if isCreate, trimmedName.isEmpty {
             name = url.deletingPathExtension().lastPathComponent.lowercased()
         }
+    }
+
+    private func pasteCode() {
+        guard let text = UIPasteboard.general.string, !text.isEmpty else {
+            importError = String(localized: "剪贴板中没有文本")
+            return
+        }
+        importError = nil
+        code = text
+        replacementFile = viewModel.sourceIssue == nil
+            ? nil
+            : (name: String(localized: "剪贴板"), bytes: text.utf8.count)
     }
 
     private func importModules(_ result: Result<[URL], Error>) {

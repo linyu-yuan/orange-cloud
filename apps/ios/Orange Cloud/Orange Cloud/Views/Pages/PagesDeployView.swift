@@ -95,13 +95,7 @@ struct PagesDeployView: View {
                     viewModel.error = nil
                 }
             }
-            .fileImporter(
-                isPresented: $showImporter,
-                allowedContentTypes: [.item],
-                allowsMultipleSelection: true
-            ) { result in
-                handleImport(result)
-            }
+            .documentPicker(isPresented: $showImporter, allowsMultipleSelection: true) { handleImport(.success($0)) }
         }
     }
 
