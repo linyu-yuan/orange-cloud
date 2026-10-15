@@ -103,9 +103,17 @@ struct WorkerUploadView: View {
                 }
 
                 switch effectiveKind {
-                case .single:  singleSection
-                case .modules: modulesSection
-                case .assets:  assetsSection
+                // 每个 fileImporter 挂在各自的 section 上：同一视图上叠多个 .fileImporter 时
+                // SwiftUI 只有最后一个生效，导致「导入 .js」打开文件但无法选中。
+                case .single:
+                    singleSection
+                        .fileImporter(isPresented: $showCodeImporter, allowedContentTypes: [.javaScript, .text, .item], allowsMultipleSelection: false) { importCode($0) }
+                case .modules:
+                    modulesSection
+                        .fileImporter(isPresented: $showModuleImporter, allowedContentTypes: [.javaScript, .text, .item], allowsMultipleSelection: true) { importModules($0) }
+                case .assets:
+                    assetsSection
+                        .fileImporter(isPresented: $showAssetImporter, allowedContentTypes: [.item], allowsMultipleSelection: true) { importAssets($0) }
                 }
 
                 if viewModel.isUploading, effectiveKind == .assets, viewModel.totalAssets > 0 {
@@ -144,9 +152,6 @@ struct WorkerUploadView: View {
             .interactiveDismissDisabled(viewModel.isUploading)
             .onAppear { viewModel.error = nil }
             .task { await loadSourceIfNeeded() }
-            .fileImporter(isPresented: $showCodeImporter, allowedContentTypes: [.javaScript, .text, .item], allowsMultipleSelection: false) { importCode($0) }
-            .fileImporter(isPresented: $showModuleImporter, allowedContentTypes: [.javaScript, .text, .item], allowsMultipleSelection: true) { importModules($0) }
-            .fileImporter(isPresented: $showAssetImporter, allowedContentTypes: [.item], allowsMultipleSelection: true) { importAssets($0) }
         }
     }
 
